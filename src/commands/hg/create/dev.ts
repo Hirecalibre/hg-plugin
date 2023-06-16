@@ -6,6 +6,7 @@
   sf-plugin/no-missing-messages
   */
 
+import path = require('path');
 import {
   AuthInfo,
   Connection,
@@ -101,7 +102,7 @@ export default class HgCreateDev extends SfCommand<HgCreateDevResult> {
     const scratchOrg: ScratchOrgCreateResult = await devHub.scratchOrgCreate({
       alias: flags.alias,
       durationDays: flags.duration,
-      definitionfile: '/Users/matt/Hiregenius/rpaas/config/project-scratch.json',
+      definitionfile: path.resolve('config/project-scratch.json'),
       noancestors: true,
     });
     this.spinner.stop();
@@ -113,9 +114,7 @@ export default class HgCreateDev extends SfCommand<HgCreateDevResult> {
   private async prepareSource(username: string, sourceApiVersion: string): Promise<MetadataApiDeploy> {
     this.spinner.start('Preparing sources ');
 
-    const deployComponentSet: ComponentSet = ComponentSet.fromSource(
-      '/Users/matt/Hiregenius/rpaas/force-app/main/default'
-    );
+    const deployComponentSet: ComponentSet = ComponentSet.fromSource(path.resolve('/force-app/main/default'));
     deployComponentSet.sourceApiVersion = sourceApiVersion;
 
     const deploy: MetadataApiDeploy = await deployComponentSet.deploy({
