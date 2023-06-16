@@ -1,19 +1,36 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-call */
+/* eslint-disable
+  @typescript-eslint/no-unsafe-argument,
+  @typescript-eslint/no-unsafe-assignment,
+  @typescript-eslint/restrict-template-expressions,
+  @typescript-eslint/no-unsafe-call,
+  sf-plugin/no-missing-messages
+  */
 
-import { Connection, Org, ScratchOrgCreateResult, SfError, SfProject, User, UserFields } from '@salesforce/core';
+import {
+  AuthInfo,
+  Connection,
+  Org,
+  ScratchOrgCreateResult,
+  SfError,
+  SfProject,
+  User,
+  UserFields,
+} from '@salesforce/core';
 import { SfCommand, Flags } from '@salesforce/sf-plugins-core';
 import { Messages } from '@salesforce/core';
 import {
   ComponentSet,
   ComponentStatus,
-  DeployResult,
-  FileResponse,
-  MetadataApiDeploy,
+  type DeployResult,
+  type FileResponse,
+  type FileResponseFailure,
+  type MetadataApiDeploy,
 } from '@salesforce/source-deploy-retrieve';
+
 import { DeployProgress } from '../../../libs/DeployProgress';
 
 Messages.importMessagesDirectory(__dirname);
-const messages = Messages.loadMessages('hg-plugin', 'hg.create.dev');
+const messages = Messages.loadMessages('@hiregenius/hg-plugin', 'hg.create.dev');
 
 export type HgCreateDevResult = {
   scratch: {
@@ -22,6 +39,12 @@ export type HgCreateDevResult = {
     durationDays: number | undefined;
     loginUrl: string | undefined;
   };
+};
+
+export type HgFlag = {
+  'target-dev-hub': Org;
+  alias: string;
+  duration: number;
 };
 
 export default class HgCreateDev extends SfCommand<HgCreateDevResult> {
@@ -49,117 +72,19 @@ export default class HgCreateDev extends SfCommand<HgCreateDevResult> {
   public async run(): Promise<HgCreateDevResult> {
     const { flags } = await this.parse(HgCreateDev);
     const devHub: Org = flags['target-dev-hub'];
-    let scratchOrg: ScratchOrgCreateResult;
 
     const project = await SfProject.resolve();
     const projectJson = await project.resolveProjectConfig();
-    // console.log(project);
-    // console.log(projectJson.sourceApiVersion);
-
-    try {
-      this.spinner.start('Creating Scratch Org ');
-      scratchOrg = await devHub.scratchOrgCreate({
-        alias: flags.alias,
-        durationDays: flags.duration,
-        definitionfile: '/Users/matt/Hiregenius/rpaas/config/project-scratch.json',
-        // orgConfig: ,
-        // orgConfig: {
-        //   edition: 'enterprise',
-        // },
-        noancestors: true,
-        apiversion: projectJson.sourceApiVersion,
-      });
-      this.spinner.stop();
-      this.log(`Created org: ${scratchOrg.username}`);
-    } catch (error) {
-      this.error(error.getMessage());
-      throw error;
-    }
-
-    // this.progress.start(0, {}, { title: 'Deploying source' });
-
-    const username: string = scratchOrg?.username ?? '';
-    const deployComponentSet: ComponentSet = ComponentSet.fromSource(
-      '/Users/matt/Hiregenius/rpaas/force-app/main/default'
+    const scratchOrg: ScratchOrgCreateResult = await this.createScratchOrg(devHub, flags);
+    const deploy: MetadataApiDeploy = await this.prepareSource(
+      scratchOrg?.username ?? '',
+      projectJson.sourceApiVersion as string
     );
-    deployComponentSet.sourceApiVersion = projectJson.sourceApiVersion;
 
-    const deploy: MetadataApiDeploy = await deployComponentSet.deploy({
-      usernameOrConnection: username,
-      apiVersion: projectJson.sourceApiVersion,
-    });
-    // deploy.onUpdate((response: MetadataApiDeployStatus) => {
-    //   const { status, numberComponentsDeployed, numberComponentsTotal } = response;
-    //   this.progress.setTotal(numberComponentsTotal);
-    //   this.progress.update(numberComponentsDeployed);
-
-    //   // const progress = `${numberComponentsDeployed}/${numberComponentsTotal}`;
-    //   // const message = `Status: ${status} Progress: ${progress}`;
-
-    //   // console.log(message);
-    // });
-
-    const deploymentProgress = new DeployProgress(deploy);
-    // // Wait for polling to finish and get the DeployResult object
-    deploymentProgress.start();
-    const result: DeployResult = await deploy.pollStatus();
-    // this.progress.finish();
-
-    const deploymentResultFiles = result.getFileResponses();
-
-    if (deploymentResultFiles.some((file) => file.state === ComponentStatus.Failed)) {
-      const failedFiles = deploymentResultFiles
-        .filter((file: FileResponse) => file.state === ComponentStatus.Failed)
-        .map((file) => ({
-          component: `${file.type}/${file.fullName}`,
-          location: `${file.lineNumber || 0}:${file.columnNumber || 0}`,
-          error: file.error,
-        }));
-
-      const columns = {
-        // where `.name` is a property of a data object
-        component: {}, // "Name" inferred as the column header
-        location: {
-          minWidth: 7,
-        },
-        error: {}, // "Name" inferred as the column header
-      };
-
-      this.table(failedFiles, columns);
-
-      // {
-      //   fullName: 'PlacementSelector',
-      //   type: 'ApexClass',
-      //   state: 'Failed',
-      //   error: 'CurrencyIsoCode,\n' +
-      //     '                        ^\n' +
-      //     'ERROR at Row:6:Column:25\n' +
-      //     "No such column 'CurrencyIsoCode' on entity 'rpaas_core__Placement__c'. If you are attempting to use a custom field, be sure to append the '__c' after the custom field name. Please reference your WSDL or the describe call for the appropriate names. (500:16)",
-      //   problemType: 'Error',
-      //   filePath: '/Users/matt/Hiregenius/rpaas/force-app/main/default/classes/selectors/PlacementSelector.cls',
-      //   lineNumber: 500,
-      //   columnNumber: 16
-      // },
-
-      throw new SfError('Deployment failed', 'Deployment failed');
-    }
-
-    this.log('Source pushed successfully');
-
-    // Output each file along with its state change of the deployment
-    // console.log(JSON.stringify(result.getFileResponses(), null, 2));
-    // @TODO: check for failed file deployment if yes print errors
-
-    this.spinner.start('Assigning permission set(s) ');
-    // const username = 'user@example.com';
-    const connection: Connection = await Connection.create({
-      authInfo: scratchOrg.authInfo, // await AuthInfo.create({ username })
-    });
-    const org = await Org.create({ connection });
-    const user: User = await User.create({ org });
-    const fields: UserFields = await user.retrieve(scratchOrg.username);
-    await user.assignPermissionSets(fields.id, ['Core_Platform_Consultant']);
-    this.spinner.stop();
+    await this.pushSource(deploy);
+    await this.assignPermissionSets(scratchOrg.authInfo as AuthInfo, scratchOrg.username as string, [
+      'Core_Platform_Consultant',
+    ]);
 
     return {
       scratch: {
@@ -169,5 +94,85 @@ export default class HgCreateDev extends SfCommand<HgCreateDevResult> {
         loginUrl: scratchOrg.scratchOrgInfo?.LoginUrl,
       },
     };
+  }
+
+  private async createScratchOrg(devHub: Org, flags: HgFlag): Promise<ScratchOrgCreateResult> {
+    this.spinner.start('Creating Scratch Org ');
+    const scratchOrg: ScratchOrgCreateResult = await devHub.scratchOrgCreate({
+      alias: flags.alias,
+      durationDays: flags.duration,
+      definitionfile: '/Users/matt/Hiregenius/rpaas/config/project-scratch.json',
+      noancestors: true,
+    });
+    this.spinner.stop();
+    this.log(`Created org: ${scratchOrg.username}`);
+
+    return scratchOrg;
+  }
+
+  private async prepareSource(username: string, sourceApiVersion: string): Promise<MetadataApiDeploy> {
+    this.spinner.start('Preparing sources ');
+
+    const deployComponentSet: ComponentSet = ComponentSet.fromSource(
+      '/Users/matt/Hiregenius/rpaas/force-app/main/default'
+    );
+    deployComponentSet.sourceApiVersion = sourceApiVersion;
+
+    const deploy: MetadataApiDeploy = await deployComponentSet.deploy({
+      usernameOrConnection: username,
+    });
+    this.spinner.stop();
+
+    return deploy;
+  }
+
+  private async pushSource(deploy: MetadataApiDeploy): Promise<void> {
+    const deploymentProgress = new DeployProgress(deploy);
+
+    deploymentProgress.start();
+
+    const result: DeployResult = await deploy.pollStatus();
+    const deploymentResultFiles = result.getFileResponses();
+
+    if (deploymentResultFiles.some((file) => file.state === ComponentStatus.Failed)) {
+      const failedFiles = deploymentResultFiles
+        .filter((file: FileResponse) => file.state === ComponentStatus.Failed)
+        .map((file: FileResponse) => {
+          const lineNumber: number = (file as FileResponseFailure).lineNumber ?? 0;
+          const columnNumber: number = (file as FileResponseFailure).columnNumber ?? 0;
+
+          return {
+            component: `${file.type}/${file.fullName}`,
+            location: `${lineNumber}:${columnNumber}`,
+            error: (file as FileResponseFailure).error,
+          };
+        });
+
+      const columns = {
+        component: {},
+        location: {
+          minWidth: 7,
+        },
+        error: {},
+      };
+
+      this.table(failedFiles, columns);
+
+      throw new SfError('Deployment failed', 'Deployment failed');
+    }
+
+    this.log('Source pushed successfully');
+  }
+
+  private async assignPermissionSets(authInfo: AuthInfo, username: string, permsets: string[]): Promise<void> {
+    this.spinner.start('Assigning permission set(s) ');
+
+    const connection: Connection = await Connection.create({ authInfo });
+    const org = await Org.create({ connection });
+    const user: User = await User.create({ org });
+    const fields: UserFields = await user.retrieve(username);
+    await user.assignPermissionSets(fields.id, permsets);
+
+    this.spinner.stop();
   }
 }

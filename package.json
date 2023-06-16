@@ -1,5 +1,5 @@
 {
-  "name": "hg-plugin",
+  "name": "@hiregenius/hg-plugin",
   "description": "Hire Genius' sf plugin",
   "version": "0.0.1",
   "dependencies": {
@@ -8,6 +8,7 @@
     "@salesforce/kit": "^3.0.1",
     "@salesforce/sf-plugins-core": "^2.4.3",
     "@salesforce/source-deploy-retrieve": "^9.2.2",
+    "jsforce": "^1.11.1",
     "tslib": "^2"
   },
   "devDependencies": {
@@ -109,7 +110,7 @@
       "command": "tsc -p . --pretty --incremental",
       "files": [
         "src/**/*.ts",
-        "**/tsconfig.json",
+        "tsconfig.json",
         "messages/**"
       ],
       "output": [

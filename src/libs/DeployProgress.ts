@@ -1,10 +1,10 @@
 import { env } from '@salesforce/kit';
-import { MetadataApiDeploy } from '@salesforce/source-deploy-retrieve';
-import { Messages } from '@salesforce/core';
+import {
+  type DeployResult,
+  type MetadataApiDeploy,
+  type MetadataApiDeployStatus,
+} from '@salesforce/source-deploy-retrieve';
 import { Progress } from '@salesforce/sf-plugins-core';
-
-Messages.importMessagesDirectory(__dirname);
-// const mdTrasferMessages = Messages.loadMessages('@salesforce/plugin-deploy-retrieve', 'metadata.transfer');
 
 export class DeployProgress extends Progress {
   private static OPTIONS = {
@@ -20,31 +20,26 @@ export class DeployProgress extends Progress {
   }
 
   public start(): void {
-    this.deploy.onUpdate((data) => {
-      // the numCompTot. isn't computed right away, wait to start until we know how many we have
-      if (data.numberComponentsTotal) {
-        this.setTotal(data.numberComponentsTotal + data.numberTestsTotal);
-        this.update(data.numberComponentsDeployed + data.numberTestsCompleted, {
-          status: data.status, // mdTrasferMessages.getMessage(data.status),
-        });
+    this.deploy.onUpdate((data: MetadataApiDeployStatus) => {
+      const numberComponentsTotal: number = data.numberComponentsTotal;
+      const numberTestsTotal: number = data.numberTestsTotal;
+      const numberComponentsDeployed: number = data.numberComponentsDeployed;
+      const numberTestsCompleted: number = data.numberTestsCompleted;
+      const status: string = data.status ?? 'Waiting';
+
+      if (numberComponentsTotal) {
+        this.setTotal(numberComponentsTotal + numberTestsTotal);
+        this.update(numberComponentsDeployed + numberTestsCompleted, { status });
       } else {
-        super.start(
-          0,
-          { status: /* mdTrasferMessages.getMessage( */ data.status /* ) */ ?? 'Waiting' },
-          DeployProgress.OPTIONS
-        );
+        super.start(0, { status }, DeployProgress.OPTIONS);
       }
 
-      // the numTestsTot. isn't computed until validated as tests by the server, update the PB once we know
-      if (data.numberTestsTotal && data.numberComponentsTotal) {
-        this.setTotal(data.numberComponentsTotal + data.numberTestsTotal);
+      if (numberTestsTotal && numberComponentsTotal) {
+        this.setTotal(numberComponentsTotal + numberTestsTotal);
       }
     });
 
-    // any thing else should stop the progress bar
-    this.deploy.onFinish((data) =>
-      this.finish({ status: /* mdTrasferMessages.getMessage( */ data.response.status /* ) */ })
-    );
+    this.deploy.onFinish((data: DeployResult) => this.finish({ status: data.response.status }));
 
     this.deploy.onCancel(() => this.stop());
 
