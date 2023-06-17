@@ -1070,11 +1070,6 @@
     "@salesforce/ts-types" "^2.0.1"
     tslib "^2.5.2"
 
-"@salesforce/prettier-config@^0.0.2":
-  version "0.0.2"
-  resolved "https://registry.yarnpkg.com/@salesforce/prettier-config/-/prettier-config-0.0.2.tgz#ded39bf7cb75238edc9db6dd093649111350f8bc"
-  integrity sha512-KExM355BLbxCW6siGBV7oUOotXvvVp0tAWERgzUkM2FcMb9fWrjwXDrIHc8V0UdDlA3UXtFltDWgN+Yqi+BA/g==
-
 "@salesforce/prettier-config@^0.0.3":
   version "0.0.3"
   resolved "https://registry.yarnpkg.com/@salesforce/prettier-config/-/prettier-config-0.0.3.tgz#ba648d4886bb38adabe073dbea0b3a91b3753bb0"
