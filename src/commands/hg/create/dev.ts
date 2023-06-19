@@ -40,6 +40,7 @@ export type HgCreateDevResult = {
     durationDays: number | undefined;
     loginUrl: string | undefined;
   };
+  failedFiles: FileResponseFailure[];
 };
 
 export type HgFlag = {
@@ -81,8 +82,8 @@ export default class HgCreateDev extends SfCommand<HgCreateDevResult> {
       scratchOrg?.username ?? '',
       projectJson.sourceApiVersion as string
     );
+    const failedFiles = await this.pushSource(deploy);
 
-    await this.pushSource(deploy);
     await this.assignPermissionSets(scratchOrg.authInfo as AuthInfo, scratchOrg.username as string, [
       'Core_Platform_Consultant',
     ]);
@@ -94,6 +95,7 @@ export default class HgCreateDev extends SfCommand<HgCreateDevResult> {
         durationDays: scratchOrg.scratchOrgInfo?.DurationDays,
         loginUrl: scratchOrg.scratchOrgInfo?.LoginUrl,
       },
+      failedFiles,
     };
   }
 
@@ -114,7 +116,7 @@ export default class HgCreateDev extends SfCommand<HgCreateDevResult> {
   private async prepareSource(username: string, sourceApiVersion: string): Promise<MetadataApiDeploy> {
     this.spinner.start('Preparing sources ');
 
-    const deployComponentSet: ComponentSet = ComponentSet.fromSource(path.resolve('/force-app/main/default'));
+    const deployComponentSet: ComponentSet = ComponentSet.fromSource(path.resolve('force-app/main/default'));
     deployComponentSet.sourceApiVersion = sourceApiVersion;
 
     const deploy: MetadataApiDeploy = await deployComponentSet.deploy({
@@ -125,7 +127,7 @@ export default class HgCreateDev extends SfCommand<HgCreateDevResult> {
     return deploy;
   }
 
-  private async pushSource(deploy: MetadataApiDeploy): Promise<void> {
+  private async pushSource(deploy: MetadataApiDeploy): Promise<FileResponseFailure[]> {
     const deploymentProgress = new DeployProgress(deploy);
 
     deploymentProgress.start();
@@ -161,6 +163,10 @@ export default class HgCreateDev extends SfCommand<HgCreateDevResult> {
     }
 
     this.log('Source pushed successfully');
+
+    return deploymentResultFiles.filter(
+      (file: FileResponse) => file.state === ComponentStatus.Failed
+    ) as FileResponseFailure[];
   }
 
   private async assignPermissionSets(authInfo: AuthInfo, username: string, permsets: string[]): Promise<void> {
