@@ -1,7 +1,7 @@
 {
   "name": "@hiregenius/hg-plugin",
   "description": "Hire Genius' sf plugin",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "dependencies": {
     "@oclif/core": "^2.8.2",
     "@salesforce/core": "^3.34.8",
@@ -88,7 +88,6 @@
     "docs": "sf-docs",
     "format": "wireit",
     "lint": "wireit",
-    "postinstall": "yarn husky install",
     "postpack": "shx rm -f oclif.manifest.json",
     "prepack": "sf-prepack",
     "test": "wireit",
